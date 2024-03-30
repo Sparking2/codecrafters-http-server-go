@@ -15,8 +15,17 @@ func handleConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	request, _ := reader.ReadString('\n')
 	parts := strings.Split(request, " ")
+
+	for _, part := range parts {
+		fmt.Println(part)
+	}
+
 	if parts[1] == "/" {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	} else if strings.Contains(parts[1], "/echo/") {
+		var replaced string
+		replaced = strings.Replace(parts[1], "/echo/", "", -1)
+		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n" + replaced))
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 NOT FOUND\r\n\r\n"))
 	}
