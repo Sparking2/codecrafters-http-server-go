@@ -25,7 +25,7 @@ func handleConnection(conn net.Conn) {
 	} else if strings.Contains(parts[1], "/echo/") {
 		var replaced string
 		replaced = strings.Replace(parts[1], "/echo/", "", -1)
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n" + replaced))
+		conn.Write([]byte("HTTP/1.1 200 OK Content-Type: text/plain\r\n\r\n" + replaced))
 	} else {
 		conn.Write([]byte("HTTP/1.1 404 NOT FOUND\r\n\r\n"))
 	}
