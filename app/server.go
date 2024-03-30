@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// Handles the connection
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
