@@ -8,48 +8,98 @@ import (
 	"strings"
 )
 
-// Handles the connection
+func responseRoot(conn net.Conn) {
+	_, err := conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	if err != nil {
+		fmt.Println("Failed to accept connection", err.Error())
+		return
+	}
+}
+
+func responseUserAgent(conn net.Conn) {
+	fmt.Println("user-agent found")
+	var userAgent string = "temp-agent\n"
+	response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
+	_, err := conn.Write([]byte(response))
+	if err != nil {
+		fmt.Println("Failed to accept connection", err.Error())
+		return
+	}
+}
+
+func responseEcho(conn net.Conn, path string) {
+	var replaced string
+	replaced = strings.Replace(path, "/responseEcho/", "", -1)
+	fmt.Printf("Replaced: %s\n", replaced)
+	response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(replaced), replaced)
+	fmt.Println(response)
+	_, err := conn.Write([]byte(response))
+	if err != nil {
+		fmt.Println("Failed to accept connection", err.Error())
+		return
+	}
+}
+
+func responseNotFound(conn net.Conn) {
+	_, err := conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	if err != nil {
+		fmt.Println("Failed to accept connection", err.Error())
+		return
+	}
+}
+
+// HttpRequest struct for grouping together information about the request
+type HttpRequest struct {
+	method string
+	path   string
+}
+
 func handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			fmt.Println("Error closing connection: ", err.Error())
+		}
+	}(conn)
 
 	reader := bufio.NewReader(conn)
 	request, _ := reader.ReadString('\n')
-	parts := strings.Split(request, " ")
 
-	for _, part := range parts {
-		fmt.Println(part)
-	}
+	requestInfo := strings.Split(request, " ")
 
-	if parts[1] == "/" {
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-	} else if strings.Contains(parts[1], "/echo/") {
-		var replaced string
-		replaced = strings.Replace(parts[1], "/echo/", "", -1)
-		fmt.Printf("Replaced: %s\n", replaced)
+	httpRequest := HttpRequest{method: requestInfo[0], path: requestInfo[1]}
+	fmt.Println(httpRequest)
 
-		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(replaced), replaced)
-		fmt.Println(response)
-		conn.Write([]byte(response))
+	if httpRequest.path == "/" {
+		responseRoot(conn)
+	} else if strings.Contains(httpRequest.path, "/responseEcho/") {
+		responseEcho(conn, httpRequest.path)
+	} else if strings.Contains(httpRequest.path, "user-agent") {
+		responseUserAgent(conn)
 	} else {
-		conn.Write([]byte("HTTP/1.1 404 NOT FOUND\r\n\r\n"))
+		responseNotFound(conn)
 	}
 }
 
 func main() {
-
-	fmt.Println("Listening server...")
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	fmt.Println("Starting server...")
+	listener, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
-
-	defer l.Close()
-
-	for {
-		conn, err := l.Accept()
+	defer func(listener net.Listener) {
+		err := listener.Close()
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
+
+		}
+	}(listener)
+
+	fmt.Println("Listening on port 4221")
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Failed to accept connection", err.Error())
 			os.Exit(1)
 		}
 		go handleConnection(conn)
