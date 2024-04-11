@@ -72,7 +72,7 @@ func handleConnection(conn net.Conn) {
 
 	if httpRequest.path == "/" {
 		responseRoot(conn)
-	} else if strings.Contains(httpRequest.path, "/responseEcho/") {
+	} else if strings.Contains(httpRequest.path, "/echo/") {
 		responseEcho(conn, httpRequest.path)
 	} else if strings.Contains(httpRequest.path, "user-agent") {
 		responseUserAgent(conn)
