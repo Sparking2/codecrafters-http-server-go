@@ -29,7 +29,7 @@ func responseUserAgent(conn net.Conn) {
 
 func responseEcho(conn net.Conn, path string) {
 	var replaced string
-	replaced = strings.Replace(path, "/responseEcho/", "", -1)
+	replaced = strings.Replace(path, "/echo/", "", -1)
 	fmt.Printf("Replaced: %s\n", replaced)
 	response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(replaced), replaced)
 	fmt.Println(response)
