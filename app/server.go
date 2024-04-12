@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -97,5 +98,5 @@ func main() {
 	homeRegex, _ := regexp.Compile("/")
 	handler.Handler(homeRegex, homeHandler())
 
-	http.ListenAndServe("0.0.0.0:4221", handler)
+	log.Fatalln(http.ListenAndServe("0.0.0.0:4221", handler))
 }
