@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func errorHandler(w http.ResponseWriter, r *http.Request, status int) {
+func errorHandler(w http.ResponseWriter, _ *http.Request, status int) {
 	w.WriteHeader(status)
 	if status == http.StatusNotFound {
 		_, err := fmt.Fprint(w, "404 - Not Found")
@@ -38,6 +38,20 @@ func echoHandler() http.Handler {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Content-Length", contentLength)
 		_, err := fmt.Fprintf(w, cleanURI)
+		if err != nil {
+			return
+		}
+	})
+}
+
+func agentHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		agent := r.Header.Get("User-Agent")
+		contentLength := strconv.Itoa(len(agent))
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Length", contentLength)
+		_, err := fmt.Fprintf(w, agent)
 		if err != nil {
 			return
 		}
@@ -76,6 +90,9 @@ func main() {
 
 	echoRegex, _ := regexp.Compile(`/echo/.*`)
 	handler.Handler(echoRegex, echoHandler())
+
+	userAgentRegex, _ := regexp.Compile("user-agent")
+	handler.Handler(userAgentRegex, agentHandler())
 
 	homeRegex, _ := regexp.Compile("/")
 	handler.Handler(homeRegex, homeHandler())
