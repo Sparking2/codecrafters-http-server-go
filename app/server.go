@@ -122,6 +122,7 @@ func agentHandler(conn *net.Conn, request request) {
 }
 
 func main() {
+	// hmmm
 	homeRegex, _ := regexp.Compile(`^/$`)
 	echoRegex, _ := regexp.Compile(`/echo/.*`)
 	agentRegex, _ := regexp.Compile("user-agent")
