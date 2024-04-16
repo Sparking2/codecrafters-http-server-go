@@ -12,7 +12,8 @@ import (
 )
 
 type request struct {
-	URI string
+	URI   string
+	Agent string
 }
 
 type route struct {
@@ -50,6 +51,9 @@ func newRequest(conn *net.Conn) request {
 				continue
 			}
 			req.URI = split[1]
+		}
+		if strings.Contains(line, "User-Agent:") {
+			req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
 		}
 
 		// TODO: add data to request
@@ -111,14 +115,22 @@ func echoHandler(conn *net.Conn, request request) {
 	(*conn).Write([]byte(formatedString))
 }
 
+func agentHandler(conn *net.Conn, request request) {
+	contentLength := strconv.Itoa(len(request.Agent))
+	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n\r\n%s", contentLength, request.Agent)
+	(*conn).Write([]byte(formatedString))
+}
+
 func main() {
 	homeRegex, _ := regexp.Compile(`^/$`)
 	echoRegex, _ := regexp.Compile(`/echo/.*`)
+	agentRegex, _ := regexp.Compile("user-agent")
 
 	handler := &RegexpHandler{}
 
 	handler.Handler(homeRegex, okHandler)
 	handler.Handler(echoRegex, echoHandler)
+	handler.Handler(agentRegex, agentHandler)
 
 	fmt.Println("Starting Server")
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
