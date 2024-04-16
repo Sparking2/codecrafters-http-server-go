@@ -117,7 +117,7 @@ func echoHandler(conn *net.Conn, request request) {
 
 func agentHandler(conn *net.Conn, request request) {
 	contentLength := strconv.Itoa(len(request.Agent))
-	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n %s", contentLength, request.Agent)
+	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n\r\n%s", contentLength, request.Agent)
 	(*conn).Write([]byte(formatedString))
 }
 
