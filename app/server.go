@@ -1,102 +1,138 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"log"
-	"net/http"
+	"io"
+	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-func errorHandler(w http.ResponseWriter, _ *http.Request, status int) {
-	w.WriteHeader(status)
-	if status == http.StatusNotFound {
-		_, err := fmt.Fprint(w, "404 - Not Found")
-		if err != nil {
-			return
-		}
-	}
-}
-
-func homeHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			errorHandler(w, r, http.StatusNotFound)
-			return
-		}
-		_, err := fmt.Fprintf(w, "Hello, World!")
-		if err != nil {
-			return
-		}
-	})
-}
-
-func echoHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cleanURI := strings.Replace(r.RequestURI, "/echo/", "", -1)
-		contentLength := strconv.Itoa(len(cleanURI))
-		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Content-Length", contentLength)
-		_, err := fmt.Fprintf(w, cleanURI)
-		if err != nil {
-			return
-		}
-	})
-}
-
-func agentHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		agent := r.Header.Get("User-Agent")
-		contentLength := strconv.Itoa(len(agent))
-
-		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Content-Length", contentLength)
-		_, err := fmt.Fprintf(w, agent)
-		if err != nil {
-			return
-		}
-	})
+type request struct {
+	URI string
 }
 
 type route struct {
 	pattern *regexp.Regexp
-	handler http.Handler
+	handler func(*net.Conn, request)
 }
 
 type RegexpHandler struct {
 	routes []*route
 }
 
-func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler http.Handler) {
+func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler func(conn *net.Conn, request request)) {
 	h.routes = append(h.routes, &route{pattern, handler})
 }
 
-func (h *RegexpHandler) HandleFunc(pattern *regexp.Regexp, handler func(w http.ResponseWriter, r *http.Request)) {
-	h.routes = append(h.routes, &route{pattern, http.HandlerFunc(handler)})
-}
+func newRequest(conn *net.Conn) request {
+	req := request{
+		URI: "/",
+	}
 
-func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	for _, route := range h.routes {
-		if route.pattern.MatchString(r.URL.Path) {
-			route.handler.ServeHTTP(w, r)
-			return
+	reader := bufio.NewReader(*conn)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) == 0 && err != nil {
+			if err == io.EOF {
+				req.URI = "/500"
+				break
+			}
+		}
+		line = strings.TrimSuffix(line, "\n")
+		fmt.Println(line)
+		if strings.Contains(line, "GET") {
+			split := strings.Split(line, " ")
+			if len(split) > 3 || len(split) < 2 {
+				continue
+			}
+			req.URI = split[1]
+		}
+
+		// TODO: add data to request
+		if err != nil {
+			if err == io.EOF {
+				req.URI = "/500"
+				break
+			}
+		}
+		if len(line) == 1 {
+			break
 		}
 	}
-	http.NotFound(w, r)
+
+	fmt.Println(req)
+
+	return req
+}
+
+func routing(conn net.Conn, handler *RegexpHandler) {
+	defer conn.Close()
+
+	request := newRequest(&conn)
+
+	var matched = false
+
+	for _, route := range handler.routes {
+		if !route.pattern.Match([]byte(request.URI)) {
+			continue
+		}
+		matched = true
+		route.handler(&conn, request)
+		break
+	}
+
+	if !matched {
+		notFoundHandler(&conn)
+	}
+}
+
+func notFoundHandler(conn *net.Conn) {
+	_, err := (*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	if err != nil {
+		fmt.Println("Failed to write in connection", err.Error())
+		return
+	}
+}
+
+func okHandler(conn *net.Conn, _ request) {
+	(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+}
+
+func echoHandler(conn *net.Conn, request request) {
+
+	cleanEcho := strings.Replace(request.URI, "/echo/", "", -1)
+	contentLength := strconv.Itoa(len(cleanEcho))
+
+	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n\r\n%s", contentLength, cleanEcho)
+	(*conn).Write([]byte(formatedString))
 }
 
 func main() {
+	homeRegex, _ := regexp.Compile(`^/$`)
+	echoRegex, _ := regexp.Compile(`/echo/.*`)
+
 	handler := &RegexpHandler{}
 
-	echoRegex, _ := regexp.Compile(`/echo/.*`)
-	handler.Handler(echoRegex, echoHandler())
+	handler.Handler(homeRegex, okHandler)
+	handler.Handler(echoRegex, echoHandler)
 
-	userAgentRegex, _ := regexp.Compile("user-agent")
-	handler.Handler(userAgentRegex, agentHandler())
+	fmt.Println("Starting Server")
+	listener, err := net.Listen("tcp", "0.0.0.0:4221")
+	if err != nil {
+		fmt.Println("Failed to bind to port 4221")
+		os.Exit(1)
+	}
 
-	homeRegex, _ := regexp.Compile("/")
-	handler.Handler(homeRegex, homeHandler())
+	defer listener.Close()
 
-	log.Fatalln(http.ListenAndServe("0.0.0.0:4221", handler))
+	fmt.Println("Listening on port 4221")
+	for {
+		conn, _ := listener.Accept()
+		go routing(conn, handler)
+	}
+
 }
