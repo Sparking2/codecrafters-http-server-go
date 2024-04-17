@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -121,20 +122,45 @@ func agentHandler(conn *net.Conn, request request) {
 	(*conn).Write([]byte(formatedString))
 }
 
+func filesHandler(conn *net.Conn, request request) {
+	fmt.Printf("Input directory: %s\n", *directoryPtr)
+
+	cleanUri := strings.Replace(request.URI, "/files/", "", -1)
+
+	data, err := os.ReadFile(*directoryPtr + cleanUri)
+	if err != nil {
+		notFoundHandler(conn)
+		return
+	}
+	readContent := string(data)
+
+	contentLength := strconv.Itoa(len(readContent))
+
+	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
+	(*conn).Write([]byte(formatedString))
+}
+
+var directoryPtr *string
+
 func main() {
-	// hmmm
+	directoryPtr = flag.String("directory", ".", "Directory to serve files from")
+	flag.Parse()
+
 	homeRegex, _ := regexp.Compile(`^/$`)
 	echoRegex, _ := regexp.Compile(`/echo/.*`)
 	agentRegex, _ := regexp.Compile("user-agent")
+	fileRegex, _ := regexp.Compile(`/files/.*`)
 
 	handler := &RegexpHandler{}
 
 	handler.Handler(homeRegex, okHandler)
 	handler.Handler(echoRegex, echoHandler)
 	handler.Handler(agentRegex, agentHandler)
+	handler.Handler(fileRegex, filesHandler)
 
 	fmt.Println("Starting Server")
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
+	fmt.Println("Server started at http://localhost:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
