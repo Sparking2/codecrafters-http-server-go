@@ -136,7 +136,7 @@ func filesHandler(conn *net.Conn, request request) {
 
 	contentLength := strconv.Itoa(len(readContent))
 
-	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
+	formatedString := fmt.Sprintf("HTTP/1.1 201 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
 	(*conn).Write([]byte(formatedString))
 }
 
