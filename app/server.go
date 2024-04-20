@@ -13,21 +13,23 @@ import (
 )
 
 type request struct {
-	URI   string
-	Agent string
+	URI    string
+	Agent  string
+	Method string
 }
 
 type route struct {
 	pattern *regexp.Regexp
 	handler func(*net.Conn, request)
+	method  string
 }
 
 type RegexpHandler struct {
 	routes []*route
 }
 
-func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler func(conn *net.Conn, request request)) {
-	h.routes = append(h.routes, &route{pattern, handler})
+func (h *RegexpHandler) Handler(pattern *regexp.Regexp, handler func(conn *net.Conn, request request), method string) {
+	h.routes = append(h.routes, &route{pattern, handler, method})
 }
 
 func newRequest(conn *net.Conn) request {
@@ -52,7 +54,17 @@ func newRequest(conn *net.Conn) request {
 				continue
 			}
 			req.URI = split[1]
+			req.Method = "GET"
 		}
+		if strings.Contains(line, "POST") {
+			split := strings.Split(line, " ")
+			if len(split) > 3 || len(split) < 2 {
+				continue
+			}
+			req.URI = split[1]
+			req.Method = "POST"
+		}
+
 		if strings.Contains(line, "User-Agent:") {
 			req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
 		}
@@ -85,6 +97,10 @@ func routing(conn net.Conn, handler *RegexpHandler) {
 		if !route.pattern.Match([]byte(request.URI)) {
 			continue
 		}
+		if route.method != request.Method {
+			continue
+		}
+
 		matched = true
 		route.handler(&conn, request)
 		break
@@ -136,7 +152,12 @@ func filesHandler(conn *net.Conn, request request) {
 
 	contentLength := strconv.Itoa(len(readContent))
 
-	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
+	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
+	(*conn).Write([]byte(formatedString))
+}
+
+func fileCreation(conn *net.Conn, request request) {
+	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\n")
 	(*conn).Write([]byte(formatedString))
 }
 
@@ -153,10 +174,11 @@ func main() {
 
 	handler := &RegexpHandler{}
 
-	handler.Handler(homeRegex, okHandler)
-	handler.Handler(echoRegex, echoHandler)
-	handler.Handler(agentRegex, agentHandler)
-	handler.Handler(fileRegex, filesHandler)
+	handler.Handler(homeRegex, okHandler, "GET")
+	handler.Handler(echoRegex, echoHandler, "GET")
+	handler.Handler(agentRegex, agentHandler, "GET")
+	handler.Handler(fileRegex, filesHandler, "GET")
+	handler.Handler(fileRegex, filesHandler, "POST")
 
 	fmt.Println("Starting Server")
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
