@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"regexp"
@@ -38,15 +37,18 @@ func newRequest(conn *net.Conn) request {
 	}
 
 	reader := bufio.NewReader(*conn)
-	for {
-		line, err := reader.ReadString('\n')
-		if len(line) == 0 && err != nil {
-			if err == io.EOF {
-				req.URI = "/500"
-				break
-			}
-		}
-		line = strings.TrimSuffix(line, "\n")
+	buffer := make([]byte, 4096)
+	read, err := reader.Read(buffer)
+	if err != nil {
+		fmt.Println(err.Error())
+		req.URI = "/404"
+		return req
+	}
+	requestData := string(buffer[:read])
+
+	splitRequestedData := strings.Split(requestData, "\n")
+	for _, s := range splitRequestedData {
+		line := strings.TrimSuffix(s, "\n")
 		fmt.Println(line)
 		if strings.Contains(line, "GET") {
 			split := strings.Split(line, " ")
@@ -68,19 +70,62 @@ func newRequest(conn *net.Conn) request {
 		if strings.Contains(line, "User-Agent:") {
 			req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
 		}
+	}
 
-		// TODO: add data to request
-		if err != nil {
-			if err == io.EOF {
-				req.URI = "/500"
+	//for {
+	//	read, err := reader.Read(buffer)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	fmt.Println(string(buffer[:read]))
+	//	if reader.Size() == read {
+	//		break
+	//	}
+	//}
+	/*
+		for {
+			line, err := reader.ReadString('\n')
+			if len(line) == 0 && err != nil {
+				if err == io.EOF {
+					req.URI = "/500"
+					break
+				}
+			}
+			line = strings.TrimSuffix(line, "\n")
+			fmt.Println(line)
+			if strings.Contains(line, "GET") {
+				split := strings.Split(line, " ")
+				if len(split) > 3 || len(split) < 2 {
+					continue
+				}
+				req.URI = split[1]
+				req.Method = "GET"
+			}
+			if strings.Contains(line, "POST") {
+				split := strings.Split(line, " ")
+				if len(split) > 3 || len(split) < 2 {
+					continue
+				}
+				req.URI = split[1]
+				req.Method = "POST"
+			}
+
+			if strings.Contains(line, "User-Agent:") {
+				req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
+			}
+
+			// TODO: add data to request
+			if err != nil {
+				if err == io.EOF {
+					req.URI = "/500"
+					break
+				}
+			}
+			if len(line) == 1 {
 				break
 			}
 		}
-		if len(line) == 1 {
-			break
-		}
-	}
-
+	*/
 	fmt.Println(req)
 
 	return req
@@ -157,6 +202,10 @@ func filesHandler(conn *net.Conn, request request) {
 }
 
 func fileCreation(conn *net.Conn, request request) {
+	fmt.Printf("Output directory: %s\n", *directoryPtr)
+
+	//cleanUri := strings.Replace(request.URI, "/files/", "", -1)
+
 	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\n")
 	(*conn).Write([]byte(formatedString))
 }
@@ -178,7 +227,7 @@ func main() {
 	handler.Handler(echoRegex, echoHandler, "GET")
 	handler.Handler(agentRegex, agentHandler, "GET")
 	handler.Handler(fileRegex, filesHandler, "GET")
-	handler.Handler(fileRegex, filesHandler, "POST")
+	handler.Handler(fileRegex, fileCreation, "POST")
 
 	fmt.Println("Starting Server")
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
@@ -197,3 +246,5 @@ func main() {
 	}
 
 }
+
+// local test: curl -vvv -d "hello world" localhost:4221/files/readme.txt
