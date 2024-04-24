@@ -90,7 +90,7 @@ func newRequest(conn *net.Conn) request {
 }
 
 func routing(conn net.Conn, handler *RegexpHandler) {
-	defer conn.Close()
+	//defer conn.Close()
 
 	request := newRequest(&conn)
 
