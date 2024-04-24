@@ -169,7 +169,7 @@ func fileCreation(conn *net.Conn, request request) {
 
 	cleanUri := strings.Replace(request.URI, "/files/", "", -1)
 
-	err := os.WriteFile(*directoryPtr+cleanUri, []byte(request.Body+"\r\n"), 0644)
+	err := os.WriteFile(*directoryPtr+cleanUri, []byte(request.Body), 0644)
 	if err != nil {
 		fmt.Println("Failed to write file", err.Error())
 	}
