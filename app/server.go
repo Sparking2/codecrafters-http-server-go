@@ -15,6 +15,7 @@ type request struct {
 	URI    string
 	Agent  string
 	Method string
+	Body   string
 }
 
 type route struct {
@@ -47,9 +48,11 @@ func newRequest(conn *net.Conn) request {
 	requestData := string(buffer[:read])
 
 	splitRequestedData := strings.Split(requestData, "\n")
+	readyToReadBody := false
+
 	for _, s := range splitRequestedData {
 		line := strings.TrimSuffix(s, "\n")
-		fmt.Println(line)
+		//fmt.Println(line)
 		if strings.Contains(line, "GET") {
 			split := strings.Split(line, " ")
 			if len(split) > 3 || len(split) < 2 {
@@ -70,63 +73,18 @@ func newRequest(conn *net.Conn) request {
 		if strings.Contains(line, "User-Agent:") {
 			req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
 		}
+
+		if len(line) == 1 {
+			readyToReadBody = true
+			continue
+		}
+
+		if readyToReadBody {
+			req.Body = line
+		}
 	}
 
-	//for {
-	//	read, err := reader.Read(buffer)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	fmt.Println(string(buffer[:read]))
-	//	if reader.Size() == read {
-	//		break
-	//	}
-	//}
-	/*
-		for {
-			line, err := reader.ReadString('\n')
-			if len(line) == 0 && err != nil {
-				if err == io.EOF {
-					req.URI = "/500"
-					break
-				}
-			}
-			line = strings.TrimSuffix(line, "\n")
-			fmt.Println(line)
-			if strings.Contains(line, "GET") {
-				split := strings.Split(line, " ")
-				if len(split) > 3 || len(split) < 2 {
-					continue
-				}
-				req.URI = split[1]
-				req.Method = "GET"
-			}
-			if strings.Contains(line, "POST") {
-				split := strings.Split(line, " ")
-				if len(split) > 3 || len(split) < 2 {
-					continue
-				}
-				req.URI = split[1]
-				req.Method = "POST"
-			}
-
-			if strings.Contains(line, "User-Agent:") {
-				req.Agent = strings.Replace(line, "User-Agent: ", "", -1)
-			}
-
-			// TODO: add data to request
-			if err != nil {
-				if err == io.EOF {
-					req.URI = "/500"
-					break
-				}
-			}
-			if len(line) == 1 {
-				break
-			}
-		}
-	*/
-	fmt.Println(req)
+	//fmt.Println(req)
 
 	return req
 }
@@ -204,7 +162,12 @@ func filesHandler(conn *net.Conn, request request) {
 func fileCreation(conn *net.Conn, request request) {
 	fmt.Printf("Output directory: %s\n", *directoryPtr)
 
-	//cleanUri := strings.Replace(request.URI, "/files/", "", -1)
+	cleanUri := strings.Replace(request.URI, "/files/", "", -1)
+
+	err := os.WriteFile(*directoryPtr+cleanUri, []byte(request.Body), 0644)
+	if err != nil {
+		fmt.Println("Failed to write file", err.Error())
+	}
 
 	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\n")
 	(*conn).Write([]byte(formatedString))
