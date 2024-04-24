@@ -120,10 +120,12 @@ func notFoundHandler(conn *net.Conn) {
 		fmt.Println("Failed to write in connection", err.Error())
 		return
 	}
+	(*conn).Close()
 }
 
 func okHandler(conn *net.Conn, _ request) {
 	(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	(*conn).Close()
 }
 
 func echoHandler(conn *net.Conn, request request) {
@@ -133,12 +135,14 @@ func echoHandler(conn *net.Conn, request request) {
 
 	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n\r\n%s", contentLength, cleanEcho)
 	(*conn).Write([]byte(formatedString))
+	(*conn).Close()
 }
 
 func agentHandler(conn *net.Conn, request request) {
 	contentLength := strconv.Itoa(len(request.Agent) - 1)
 	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\n\r\n%s", contentLength, request.Agent)
 	(*conn).Write([]byte(formatedString))
+	(*conn).Close()
 }
 
 func filesHandler(conn *net.Conn, request request) {
@@ -157,6 +161,7 @@ func filesHandler(conn *net.Conn, request request) {
 
 	formatedString := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %s\r\n\r\n%s", contentLength, readContent)
 	(*conn).Write([]byte(formatedString))
+	(*conn).Close()
 }
 
 func fileCreation(conn *net.Conn, request request) {
@@ -171,6 +176,7 @@ func fileCreation(conn *net.Conn, request request) {
 
 	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\nContent-Type: text/plain\nContent-Length: 0\r\n")
 	(*conn).Write([]byte(formatedString))
+	(*conn).Close()
 }
 
 var directoryPtr *string
