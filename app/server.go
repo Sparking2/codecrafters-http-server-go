@@ -174,8 +174,9 @@ func fileCreation(conn *net.Conn, request request) {
 		fmt.Println("Failed to write file", err.Error())
 	}
 
-	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\nContent-Type: text/plain\nContent-Length: 0\r\n")
+	formatedString := fmt.Sprintf("HTTP/1.1 201 Created\r\nContent-Type: text/plain\nContent-Length: 0\r\n\r\n")
 	(*conn).Write([]byte(formatedString))
+
 	(*conn).Close()
 }
 
